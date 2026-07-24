@@ -9,7 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@prisma/adapter-mariadb": "^7.9.0",
+    "@prisma/client": "^7.9.0",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "mariadb": "^3.5.3",
     "next": "16.2.11",
+    "prisma": "^7.9.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

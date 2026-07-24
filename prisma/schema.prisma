@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model comments {
+  id_comment   String   @id @db.Char(36)
+  id_post      String   @db.Char(36)
+  id_user      String   @db.Char(36)
+  isi_komentar String   @db.Text
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+  updated_at   DateTime @default(now()) @db.Timestamp(0)
+  posts        posts    @relation(fields: [id_post], references: [id_post], onDelete: Cascade, onUpdate: Restrict, map: "comments_ibfk_1")
+  users        users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "comments_ibfk_2")
+
+  @@index([id_post], map: "id_post")
+  @@index([id_user], map: "id_user")
+}
+
+model follows {
+  follower_id                       String   @db.Char(36)
+  following_id                      String   @db.Char(36)
+  followed_at                       DateTime @default(now()) @db.Timestamp(0)
+  users_follows_follower_idTousers  users    @relation("follows_follower_idTousers", fields: [follower_id], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "follows_ibfk_1")
+  users_follows_following_idTousers users    @relation("follows_following_idTousers", fields: [following_id], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "follows_ibfk_2")
+
+  @@id([follower_id, following_id])
+  @@index([following_id], map: "following_id")
+}
+
+model likes {
+  id_like    String   @id @db.Char(36)
+  id_post    String   @db.Char(36)
+  id_user    String   @db.Char(36)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  posts      posts    @relation(fields: [id_post], references: [id_post], onDelete: Cascade, onUpdate: Restrict, map: "likes_ibfk_1")
+  users      users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "likes_ibfk_2")
+
+  @@unique([id_post, id_user], map: "unique_like")
+  @@index([id_user], map: "id_user")
+}
+
+model notifications {
+  id_notif                            String   @id @db.Char(36)
+  id_user                             String   @db.Char(36)
+  actor_id                            String?  @db.Char(36)
+  reference_id                        String?  @db.Char(36)
+  tipe                                String   @db.VarChar(20)
+  pesan                               String?  @db.Text
+  is_read                             Boolean? @default(false)
+  created_at                          DateTime @default(now()) @db.Timestamp(0)
+  users_notifications_id_userTousers  users    @relation("notifications_id_userTousers", fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "notifications_ibfk_1")
+  users_notifications_actor_idTousers users?   @relation("notifications_actor_idTousers", fields: [actor_id], references: [id_user], onUpdate: Restrict, map: "notifications_ibfk_2")
+
+  @@index([actor_id], map: "actor_id")
+  @@index([id_user], map: "id_user")
+}
+
+model posts {
+  id_post     String        @id @db.Char(36)
+  id_user     String        @db.Char(36)
+  konten_teks String?       @db.Text
+  media_url   String?       @db.Text
+  media_type  String?       @db.VarChar(20)
+  kategori    String?       @db.VarChar(50)
+  visibility  String?       @default("public") @db.VarChar(20)
+  like_count  Int?          @default(0)
+  created_at  DateTime      @default(now()) @db.Timestamp(0)
+  updated_at  DateTime      @default(now()) @db.Timestamp(0)
+  comments    comments[]
+  likes       likes[]
+  users       users         @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "posts_ibfk_1")
+  saved_posts saved_posts[]
+
+  @@index([id_user], map: "id_user")
+}
+
+model saved_posts {
+  id_saved String   @id @db.Char(36)
+  id_user  String   @db.Char(36)
+  id_post  String   @db.Char(36)
+  saved_at DateTime @default(now()) @db.Timestamp(0)
+  users    users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "saved_posts_ibfk_1")
+  posts    posts    @relation(fields: [id_post], references: [id_post], onDelete: Cascade, onUpdate: Restrict, map: "saved_posts_ibfk_2")
+
+  @@unique([id_user, id_post], map: "unique_save")
+  @@index([id_post], map: "id_post")
+}
+
+model users {
+  id_user                                     String          @id @db.Char(36)
+  nim                                         String          @unique(map: "nim") @db.VarChar(20)
+  nama_lengkap                                String          @db.VarChar(100)
+  email_amikom                                String          @unique(map: "email_amikom") @db.VarChar(100)
+  prodi                                       String          @db.VarChar(50)
+  password_hash                               String          @db.VarChar(255)
+  bio                                         String?         @db.Text
+  avatar_url                                  String?         @db.VarChar(255)
+  is_verified                                 Boolean?        @default(false)
+  created_at                                  DateTime        @default(now()) @db.Timestamp(0)
+  updated_at                                  DateTime        @default(now()) @db.Timestamp(0)
+  comments                                    comments[]
+  follows_follows_follower_idTousers          follows[]       @relation("follows_follower_idTousers")
+  follows_follows_following_idTousers         follows[]       @relation("follows_following_idTousers")
+  likes                                       likes[]
+  notifications_notifications_id_userTousers  notifications[] @relation("notifications_id_userTousers")
+  notifications_notifications_actor_idTousers notifications[] @relation("notifications_actor_idTousers")
+  posts                                       posts[]
+  saved_posts                                 saved_posts[]
+}
