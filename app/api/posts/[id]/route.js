@@ -4,31 +4,53 @@ import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const session = await getCurrentUser();
+    const { id } = await params;
+
     const post = await prisma.posts.findUnique({
       where: { id_post: id },
       include: {
-        users: { select: { nama_lengkap: true, avatar_url: true } },
+        users: { select: { nama_lengkap: true, avatar_url: true, prodi: true } },
         comments: {
-          include: {
-            users: { select: { nama_lengkap: true, avatar_url: true } },
-          },
+          include: { users: { select: { nama_lengkap: true, avatar_url: true } } },
           orderBy: { created_at: "asc" },
         },
+        _count: { select: { likes: true } },
+        ...(session && {
+          likes: {
+            where: { id_user: session.id_user },
+            select: { id_like: true },
+          },
+          saved_posts: {
+            where: { id_user: session.id_user },
+            select: { id_saved: true },
+          },
+        }),
       },
     });
+
     if (!post) {
       return NextResponse.json(
         { error: "Postingan tidak ditemukan" },
         { status: 404 },
       );
     }
-    return NextResponse.json(post);
+
+    const formatted = {
+      ...post,
+      is_liked: session ? post.likes?.length > 0 : false,
+      is_saved: session ? post.saved_posts?.length > 0 : false,
+      likes: undefined,
+      saved_posts: undefined,
+    };
+
+    return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
+// PUT dan DELETE tetap sama seperti sebelumnya
 export async function PUT(request, { params }) {
   try {
     const session = await getCurrentUser();
@@ -36,7 +58,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const existing = await prisma.posts.findUnique({ where: { id_post: id } });
 
     if (!existing) {
@@ -71,7 +93,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const existing = await prisma.posts.findUnique({ where: { id_post: id } });
 
     if (!existing) {

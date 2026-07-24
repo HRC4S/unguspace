@@ -10,14 +10,48 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
-    const like = await prisma.likes.create({
-      data: {
-        id_like: crypto.randomUUID(),
-        id_post: id,
-        id_user: session.id_user,
-      },
+    const post = await prisma.posts.findUnique({
+      where: { id_post: id },
+      select: { id_user: true },
+    });
+
+    if (!post) {
+      return NextResponse.json(
+        { error: "Postingan tidak ditemukan" },
+        { status: 404 },
+      );
+    }
+
+    const like = await prisma.$transaction(async (tx) => {
+      const created = await tx.likes.create({
+        data: {
+          id_like: crypto.randomUUID(),
+          id_post: id,
+          id_user: session.id_user,
+        },
+      });
+
+      await tx.posts.update({
+        where: { id_post: id },
+        data: { like_count: { increment: 1 } },
+      });
+
+      if (post.id_user !== session.id_user) {
+        await tx.notifications.create({
+          data: {
+            id_notif: crypto.randomUUID(),
+            id_user: post.id_user,
+            actor_id: session.id_user,
+            reference_id: id,
+            tipe: "like",
+            pesan: `${session.nama_lengkap} menyukai postinganmu`,
+          },
+        });
+      }
+
+      return created;
     });
 
     return NextResponse.json(like, { status: 201 });
@@ -32,7 +66,7 @@ export async function POST(request, { params }) {
   }
 }
 
-// DELETE -> unlike (butuh id_user di body)
+// DELETE -> unlike
 export async function DELETE(request, { params }) {
   try {
     const session = await getCurrentUser();
@@ -40,25 +74,26 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
-    const result = await prisma.likes.deleteMany({
-      where: { id_post: id, id_user: session.id_user },
-    });
+    const { id } = await params;
 
-    if (result.count === 0) {
-      return NextResponse.json(
-        { error: "Like tidak ditemukan" },
-        { status: 404 },
-      );
-    }
+    await prisma.$transaction(async (tx) => {
+      const result = await tx.likes.deleteMany({
+        where: { id_post: id, id_user: session.id_user },
+      });
 
-    await prisma.posts.update({
-      where: { id_post: id },
-      data: { like_count: { decrement: 1 } },
+      if (result.count === 0) {
+        throw Object.assign(new Error("Like tidak ditemukan"), { status: 404 });
+      }
+
+      await tx.posts.update({
+        where: { id_post: id },
+        data: { like_count: { decrement: 1 } },
+      });
     });
 
     return NextResponse.json({ message: "Like dibatalkan" });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const status = error.status || 500;
+    return NextResponse.json({ error: error.message }, { status });
   }
 }

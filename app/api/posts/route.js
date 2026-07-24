@@ -2,35 +2,54 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
-// GET /api/posts?kategori=UIUX -> feed, bisa difilter kategori
 export async function GET(request) {
   try {
+    const session = await getCurrentUser();
     const { searchParams } = new URL(request.url);
     const kategori = searchParams.get("kategori");
+    const id_user = searchParams.get("id_user");
 
     const posts = await prisma.posts.findMany({
       where: {
         visibility: "public",
         ...(kategori && { kategori }),
+        ...(id_user && { id_user }),
       },
       include: {
         users: {
-          select: { nama_lengkap: true, avatar_url: true, prodi: true },
+          select: { nama_lengkap: true, avatar_url: true, prodi: true, is_verified: true },
         },
         _count: {
           select: { comments: true, likes: true },
         },
+        ...(session && {
+          likes: {
+            where: { id_user: session.id_user },
+            select: { id_like: true },
+          },
+          saved_posts: {
+            where: { id_user: session.id_user },
+            select: { id_saved: true },
+          },
+        }),
       },
       orderBy: { created_at: "desc" },
     });
 
-    return NextResponse.json(posts);
+    const formatted = posts.map((post) => ({
+      ...post,
+      is_liked: session ? post.likes?.length > 0 : false,
+      is_saved: session ? post.saved_posts?.length > 0 : false,
+      likes: undefined,
+      saved_posts: undefined,
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST /api/posts -> buat postingan baru
 export async function POST(request) {
   try {
     const session = await getCurrentUser();
@@ -39,14 +58,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const {
-      id_user,
-      konten_teks,
-      media_url,
-      media_type,
-      kategori,
-      visibility,
-    } = body;
+    const { konten_teks, media_url, media_type, kategori, visibility } = body;
 
     const newPost = await prisma.posts.create({
       data: {

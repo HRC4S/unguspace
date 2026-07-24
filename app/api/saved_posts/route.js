@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
-// GET /api/saved-posts?id_user=xxx -> daftar postingan yang disimpan user
+// GET /api/saved-posts -> daftar postingan yang disimpan user yang login
 export async function GET(request) {
   try {
     const session = await getCurrentUser();
@@ -10,25 +10,37 @@ export async function GET(request) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const requestedUserId = searchParams.get("id_user");
-    if (requestedUserId && requestedUserId !== session.id_user) {
-      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
-    }
-
     const saved = await prisma.saved_posts.findMany({
       where: { id_user: session.id_user },
       include: {
         posts: {
           include: {
-            users: { select: { nama_lengkap: true, avatar_url: true } },
+            users: {
+              select: { nama_lengkap: true, avatar_url: true, prodi: true },
+            },
+            _count: { select: { comments: true, likes: true } },
+            likes: {
+              where: { id_user: session.id_user },
+              select: { id_like: true },
+            },
           },
         },
       },
       orderBy: { saved_at: "desc" },
     });
 
-    return NextResponse.json(saved);
+    const formatted = saved.map((item) => ({
+      id_saved: item.id_saved,
+      saved_at: item.saved_at,
+      post: {
+        ...item.posts,
+        is_liked: item.posts.likes?.length > 0,
+        is_saved: true, // pasti true, karena ini daftar saved
+        likes: undefined,
+      },
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -45,10 +57,7 @@ export async function POST(request) {
     const { id_post } = await request.json();
 
     if (!id_post) {
-      return NextResponse.json(
-        { error: "id_post wajib diisi" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "id_post wajib diisi" }, { status: 400 });
     }
 
     const saved = await prisma.saved_posts.create({
@@ -81,10 +90,7 @@ export async function DELETE(request) {
 
     const { id_post } = await request.json();
     if (!id_post) {
-      return NextResponse.json(
-        { error: "id_post wajib diisi" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "id_post wajib diisi" }, { status: 400 });
     }
 
     await prisma.saved_posts.deleteMany({

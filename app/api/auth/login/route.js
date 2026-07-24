@@ -25,13 +25,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email atau password salah' }, { status: 401 })
     }
 
-    if (!user.is_verified) {
-      return NextResponse.json(
-        { error: 'Akun belum diverifikasi. Hubungi admin.' },
-        { status: 403 }
-      )
-    }
-
     const token = signToken({
       id_user: user.id_user,
       nama_lengkap: user.nama_lengkap,
@@ -46,6 +39,7 @@ export async function POST(request) {
         email_amikom: user.email_amikom,
         prodi: user.prodi,
         avatar_url: user.avatar_url,
+        is_verified: user.is_verified,
       },
     })
 
@@ -53,7 +47,7 @@ export async function POST(request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 hari
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     })
 

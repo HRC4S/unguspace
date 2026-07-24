@@ -30,8 +30,23 @@ export async function POST(request) {
       );
     }
 
-    const follow = await prisma.follows.create({
-      data: { follower_id: effectiveFollowerId, following_id },
+    const follow = await prisma.$transaction(async (tx) => {
+      const created = await tx.follows.create({
+        data: { follower_id: effectiveFollowerId, following_id },
+      });
+
+      await tx.notifications.create({
+        data: {
+          id_notif: crypto.randomUUID(),
+          id_user: following_id,
+          actor_id: effectiveFollowerId,
+          reference_id: effectiveFollowerId,
+          tipe: "follow",
+          pesan: `${session.nama_lengkap} mengikuti kamu`,
+        },
+      });
+
+      return created;
     });
 
     return NextResponse.json(follow, { status: 201 });

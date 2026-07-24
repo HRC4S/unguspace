@@ -1,0 +1,49 @@
+{
+  "id": "40b9b91a-698d-47f3-ad91-a55ae483e100",
+  "name": "UnguSpace Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "userIdA",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "userIdB",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "postId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "commentId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "notifId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

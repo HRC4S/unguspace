@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
-// GET /api/users/:id -> detail profil (pakai logic mirip stored procedure profil_user)
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const session = await getCurrentUser();
 
     const user = await prisma.users.findUnique({
@@ -56,7 +55,8 @@ export async function GET(request, { params }) {
   }
 }
 
-// PUT /api/users/:id -> update profil (nim & email TIDAK BOLEH diubah, sesuai aturan bisnis)
+// PUT /api/users/:id -> update profil (nim & email TIDAK BOLEH diubah)
+// Admin juga bisa ubah is_verified di sini
 export async function PUT(request, { params }) {
   try {
     const session = await getCurrentUser();
@@ -64,23 +64,31 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
-    if (!isAdminUser(session) && session.id_user !== id) {
+    const { id } = await params;
+    const admin = isAdminUser(session);
+    if (!admin && session.id_user !== id) {
       return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
     }
 
     const body = await request.json();
-    const { nama_lengkap, prodi, bio, avatar_url } = body;
+    const { nama_lengkap, prodi, bio, avatar_url, is_verified } = body;
+
+    const data = { nama_lengkap, prodi, bio, avatar_url };
+    // Hanya admin yang boleh mengubah status verifikasi
+    if (admin && typeof is_verified === "boolean") {
+      data.is_verified = is_verified;
+    }
 
     const updated = await prisma.users.update({
       where: { id_user: id },
-      data: { nama_lengkap, prodi, bio, avatar_url },
+      data,
       select: {
         id_user: true,
         nama_lengkap: true,
         prodi: true,
         bio: true,
         avatar_url: true,
+        is_verified: true,
       },
     });
 
@@ -98,7 +106,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!isAdminUser(session) && session.id_user !== id) {
       return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
     }

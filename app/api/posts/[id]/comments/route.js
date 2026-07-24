@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const comments = await prisma.comments.findMany({
       where: { id_post: id },
       include: { users: { select: { nama_lengkap: true, avatar_url: true } } },
@@ -23,8 +23,8 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
-    const { id_user, isi_komentar } = await request.json();
+    const { id } = await params;
+    const { isi_komentar } = await request.json();
 
     if (!isi_komentar) {
       return NextResponse.json(
@@ -33,13 +33,43 @@ export async function POST(request, { params }) {
       );
     }
 
-    const newComment = await prisma.comments.create({
-      data: {
-        id_comment: crypto.randomUUID(),
-        id_post: id,
-        id_user: session.id_user,
-        isi_komentar,
-      },
+    const post = await prisma.posts.findUnique({
+      where: { id_post: id },
+      select: { id_user: true },
+    });
+
+    if (!post) {
+      return NextResponse.json(
+        { error: "Postingan tidak ditemukan" },
+        { status: 404 },
+      );
+    }
+
+    const newComment = await prisma.$transaction(async (tx) => {
+      const comment = await tx.comments.create({
+        data: {
+          id_comment: crypto.randomUUID(),
+          id_post: id,
+          id_user: session.id_user,
+          isi_komentar,
+        },
+      });
+
+      // Jangan kirim notif ke diri sendiri
+      if (post.id_user !== session.id_user) {
+        await tx.notifications.create({
+          data: {
+            id_notif: crypto.randomUUID(),
+            id_user: post.id_user,
+            actor_id: session.id_user,
+            reference_id: comment.id_comment,
+            tipe: "comment",
+            pesan: `${session.nama_lengkap} mengomentari postinganmu`,
+          },
+        });
+      }
+
+      return comment;
     });
 
     return NextResponse.json(newComment, { status: 201 });

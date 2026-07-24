@@ -13,7 +13,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { isi_komentar } = await request.json();
 
     const comment = await getCommentOrNull(id);
@@ -45,7 +45,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Belum login" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const comment = await getCommentOrNull(id);
     if (!comment) {
       return NextResponse.json(
