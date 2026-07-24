@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 // GET /api/users/:id -> detail profil (pakai logic mirip stored procedure profil_user)
 export async function GET(request, { params }) {
   try {
-    const { id } = params
+    const { id } = params;
+    const session = await getCurrentUser();
 
     const user = await prisma.users.findUnique({
       where: { id_user: id },
@@ -16,27 +18,59 @@ export async function GET(request, { params }) {
         avatar_url: true,
         is_verified: true,
         _count: {
-          select: { posts: true },
+          select: {
+            posts: true,
+            follows_follows_follower_idTousers: true,
+            follows_follows_following_idTousers: true,
+          },
         },
       },
-    })
+    });
 
     if (!user) {
-      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
+      return NextResponse.json(
+        { error: "User tidak ditemukan" },
+        { status: 404 },
+      );
     }
 
-    return NextResponse.json(user)
+    const isFollowing = session
+      ? (await prisma.follows.findFirst({
+          where: {
+            follower_id: session.id_user,
+            following_id: id,
+          },
+          select: { follower_id: true },
+        })) !== null
+      : false;
+
+    return NextResponse.json({
+      ...user,
+      follower_count: user._count.follows_follows_following_idTousers,
+      following_count: user._count.follows_follows_follower_idTousers,
+      post_count: user._count.posts,
+      is_following: isFollowing,
+    });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 // PUT /api/users/:id -> update profil (nim & email TIDAK BOLEH diubah, sesuai aturan bisnis)
 export async function PUT(request, { params }) {
   try {
-    const { id } = params
-    const body = await request.json()
-    const { nama_lengkap, prodi, bio, avatar_url } = body
+    const session = await getCurrentUser();
+    if (!session) {
+      return NextResponse.json({ error: "Belum login" }, { status: 401 });
+    }
+
+    const { id } = params;
+    if (!isAdminUser(session) && session.id_user !== id) {
+      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { nama_lengkap, prodi, bio, avatar_url } = body;
 
     const updated = await prisma.users.update({
       where: { id_user: id },
@@ -48,21 +82,30 @@ export async function PUT(request, { params }) {
         bio: true,
         avatar_url: true,
       },
-    })
+    });
 
-    return NextResponse.json(updated)
+    return NextResponse.json(updated);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 // DELETE /api/users/:id
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params
-    await prisma.users.delete({ where: { id_user: id } })
-    return NextResponse.json({ message: 'User berhasil dihapus' })
+    const session = await getCurrentUser();
+    if (!session) {
+      return NextResponse.json({ error: "Belum login" }, { status: 401 });
+    }
+
+    const { id } = params;
+    if (!isAdminUser(session) && session.id_user !== id) {
+      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+    }
+
+    await prisma.users.delete({ where: { id_user: id } });
+    return NextResponse.json({ message: "User berhasil dihapus" });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
