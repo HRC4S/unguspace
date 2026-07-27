@@ -51,7 +51,7 @@ export async function POST(request) {
     const mediaType = file.type.startsWith("video") ? "video" : "image";
 
     return NextResponse.json({
-      media_url: `api/media/${filename}`,
+      media_url: `/uploads/${filename}`,
       media_type: mediaType,
     });
   } catch (error) {
