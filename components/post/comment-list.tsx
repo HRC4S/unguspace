@@ -1,13 +1,15 @@
 import { CommentItem } from "./comment-item";
 
 type Comment = {
+  id_user: string;
+  username: string;
   id_comment: string;
   isi_komentar: string;
   media_url: string | null;
   created_at: string;
   like_count: number;
   is_liked: boolean;
-  users: { nama_lengkap: string; avatar_url: string | null };
+  users: { nama_lengkap: string; username: string; avatar_url: string | null };
   replies?: Comment[];
 };
 
