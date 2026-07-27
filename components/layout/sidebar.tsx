@@ -1,32 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Home, Bell, User, LogOut, PenSquare, Bookmark } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Home, Bell, User, PenSquare, Bookmark, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch } from "@/lib/api";
+import { usePostComposer } from "@/lib/post-composer-context";
 
 const navItems = [
   { href: "/", label: "Beranda", icon: Home },
+  { href: "/search", label: "Cari", icon: Search },
   { href: "/notifications", label: "Notifikasi", icon: Bell },
   { href: "/saved", label: "Tersimpan", icon: Bookmark },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, unreadCount } = useAuth();
-
-  const handleLogout = async () => {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  };
+  const { setOpen } = usePostComposer();
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 flex-col justify-between border-r px-4 py-6">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col justify-between border-r px-4 py-6">
       <div className="flex flex-col gap-2">
         <div className="mb-6 px-2 text-xl font-bold">UnguSpace</div>
 
@@ -67,29 +61,15 @@ export function Sidebar() {
           </Link>
         )}
 
-        <Button className="mt-4 w-full gap-2 rounded-full" size="lg">
+        <Button
+          className="mt-4 w-full gap-2 rounded-full"
+          size="lg"
+          onClick={() => setOpen(true)}
+        >
           <PenSquare className="h-4 w-4" />
           Posting
         </Button>
       </div>
-
-      {user && (
-        <div className="flex items-center gap-3 rounded-lg p-2 hover:bg-accent">
-          <Avatar>
-            <AvatarImage src={user.avatar_url || undefined} />
-            <AvatarFallback>{user.nama_lengkap[0]}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 overflow-hidden">
-            <p className="truncate text-sm font-medium">{user.nama_lengkap}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {user.prodi}
-            </p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
     </aside>
   );
 }

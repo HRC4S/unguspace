@@ -11,6 +11,7 @@ export async function GET(request, { params }) {
       where: { id_user: id },
       select: {
         id_user: true,
+        username: true,
         nama_lengkap: true,
         prodi: true,
         bio: true,
@@ -84,6 +85,7 @@ export async function PUT(request, { params }) {
       data,
       select: {
         id_user: true,
+        username: true,
         nama_lengkap: true,
         prodi: true,
         bio: true,

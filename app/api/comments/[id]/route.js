@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, isAdminUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
-async function getCommentOrNull(id) {
-  return prisma.comments.findUnique({ where: { id_comment: id } });
-}
-
-export async function PUT(request, { params }) {
+export async function POST(request, { params }) {
   try {
     const session = await getCurrentUser();
     if (!session) {
@@ -14,26 +10,28 @@ export async function PUT(request, { params }) {
     }
 
     const { id } = await params;
-    const { isi_komentar } = await request.json();
 
-    const comment = await getCommentOrNull(id);
-    if (!comment) {
-      return NextResponse.json(
-        { error: "Komentar tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-    if (!isAdminUser(session) && comment.id_user !== session.id_user) {
-      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
-    }
-
-    const updated = await prisma.comments.update({
-      where: { id_comment: id },
-      data: { isi_komentar },
+    const existing = await prisma.comment_likes.findFirst({
+      where: { id_comment: id, id_user: session.id_user },
     });
 
-    return NextResponse.json(updated);
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 });
+    }
+
+    const like = await prisma.comment_likes.create({
+      data: {
+        id_comment_like: crypto.randomUUID(),
+        id_comment: id,
+        id_user: session.id_user,
+      },
+    });
+
+    return NextResponse.json(like, { status: 201 });
   } catch (error) {
+    if (error.code === "P2002") {
+      return NextResponse.json({ message: "Sudah menyukai komentar ini" }, { status: 200 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -46,19 +44,12 @@ export async function DELETE(request, { params }) {
     }
 
     const { id } = await params;
-    const comment = await getCommentOrNull(id);
-    if (!comment) {
-      return NextResponse.json(
-        { error: "Komentar tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-    if (!isAdminUser(session) && comment.id_user !== session.id_user) {
-      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
-    }
 
-    await prisma.comments.delete({ where: { id_comment: id } });
-    return NextResponse.json({ message: "Komentar berhasil dihapus" });
+    await prisma.comment_likes.deleteMany({
+      where: { id_comment: id, id_user: session.id_user },
+    });
+
+    return NextResponse.json({ message: "Like komentar dibatalkan" });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

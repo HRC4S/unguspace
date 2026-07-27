@@ -10,10 +10,14 @@ export async function GET(request, { params }) {
     const post = await prisma.posts.findUnique({
       where: { id_post: id },
       include: {
-        users: { select: { nama_lengkap: true, avatar_url: true, prodi: true } },
-        comments: {
-          include: { users: { select: { nama_lengkap: true, avatar_url: true } } },
-          orderBy: { created_at: "asc" },
+        users: {
+          select: {
+            nama_lengkap: true,
+            username: true,
+            avatar_url: true,
+            prodi: true,
+            is_verified: true,
+          },
         },
         _count: { select: { likes: true } },
         ...(session && {
@@ -36,12 +40,58 @@ export async function GET(request, { params }) {
       );
     }
 
+    // Ambil komentar terpisah, dengan struktur induk + balasan (sama kayak endpoint /comments)
+    const comments = await prisma.comments.findMany({
+      where: { id_post: id, parent_comment_id: null },
+      include: {
+        users: { select: { nama_lengkap: true, username: true, avatar_url: true } },
+        _count: { select: { comment_likes: true } },
+        ...(session && {
+          comment_likes: {
+            where: { id_user: session.id_user },
+            select: { id_comment_like: true },
+          },
+        }),
+        other_comments: {
+          include: {
+            users: { select: { nama_lengkap: true, username: true, avatar_url: true } },
+            _count: { select: { comment_likes: true } },
+            ...(session && {
+              comment_likes: {
+                where: { id_user: session.id_user },
+                select: { id_comment_like: true },
+              },
+            }),
+          },
+          orderBy: { created_at: "asc" },
+        },
+      },
+      orderBy: { created_at: "asc" },
+    });
+
+    const formatComment = (c) => ({
+      id_comment: c.id_comment,
+      id_user: c.id_user,
+      isi_komentar: c.isi_komentar,
+      media_url: c.media_url,
+      created_at: c.created_at,
+      users: c.users,
+      like_count: c._count.comment_likes,
+      is_liked: session ? c.comment_likes?.length > 0 : false,
+    });
+
+    const formattedComments = comments.map((c) => ({
+      ...formatComment(c),
+      replies: c.other_comments.map(formatComment),
+    }));
+
     const formatted = {
       ...post,
       is_liked: session ? post.likes?.length > 0 : false,
       is_saved: session ? post.saved_posts?.length > 0 : false,
       likes: undefined,
       saved_posts: undefined,
+      comments: formattedComments,
     };
 
     return NextResponse.json(formatted);
@@ -50,7 +100,6 @@ export async function GET(request, { params }) {
   }
 }
 
-// PUT dan DELETE tetap sama seperti sebelumnya
 export async function PUT(request, { params }) {
   try {
     const session = await getCurrentUser();

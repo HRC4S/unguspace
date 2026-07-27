@@ -8,6 +8,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const kategori = searchParams.get("kategori");
     const id_user = searchParams.get("id_user");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
 
     const posts = await prisma.posts.findMany({
       where: {
@@ -17,7 +19,7 @@ export async function GET(request) {
       },
       include: {
         users: {
-          select: { nama_lengkap: true, avatar_url: true, prodi: true, is_verified: true },
+          select: { nama_lengkap: true, username: true, avatar_url: true, prodi: true, is_verified: true },
         },
         _count: {
           select: { comments: true, likes: true },
@@ -34,9 +36,14 @@ export async function GET(request) {
         }),
       },
       orderBy: { created_at: "desc" },
+      skip: (page - 1) * limit,
+      take: limit + 1,
     });
 
-    const formatted = posts.map((post) => ({
+    const hasMore = posts.length > limit;
+    const pagePosts = posts.slice(0, limit);
+
+    const formatted = pagePosts.map((post) => ({
       ...post,
       is_liked: session ? post.likes?.length > 0 : false,
       is_saved: session ? post.saved_posts?.length > 0 : false,
@@ -44,7 +51,7 @@ export async function GET(request) {
       saved_posts: undefined,
     }));
 
-    return NextResponse.json(formatted);
+    return NextResponse.json({ posts: formatted, hasMore, nextPage: page + 1 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

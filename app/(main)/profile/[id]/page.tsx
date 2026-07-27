@@ -23,10 +23,10 @@ export default function ProfilePage() {
     try {
       const [profileData, postsData] = await Promise.all([
         apiFetch(`/api/users/${id}`),
-        apiFetch(`/api/posts?id_user=${id}`),
+        apiFetch(`/api/posts?id_user=${id}&limit=50`),
       ]);
       setProfile(profileData);
-      setPosts(postsData);
+      setPosts(postsData.posts);
     } finally {
       setLoading(false);
     }
@@ -35,6 +35,19 @@ export default function ProfilePage() {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  const handlePostDeleted = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id_post !== postId));
+    setProfile((prev: any) =>
+      prev ? { ...prev, post_count: Math.max(0, prev.post_count - 1) } : prev
+    );
+  };
+
+  const handlePostUpdated = (updated: any) => {
+    setPosts((prev) =>
+      prev.map((p) => (p.id_post === updated.id_post ? { ...p, ...updated } : p))
+    );
+  };
 
   if (loading) {
     return (
@@ -81,14 +94,14 @@ export default function ProfilePage() {
             <EditProfileDialog user={profile} onUpdated={loadProfile} />
           ) : (
             <FollowButton
-                targetUserId={id}
-                initialIsFollowing={profile.is_following}
-                onToggled={(nowFollowing) => {
-                    setProfile((prev: any) => ({
-                    ...prev,
-                    follower_count: prev.follower_count + (nowFollowing ? 1 : -1),
-                    }));
-                }}
+              targetUserId={id}
+              initialIsFollowing={profile.is_following}
+              onToggled={(nowFollowing) => {
+                setProfile((prev: any) => ({
+                  ...prev,
+                  follower_count: prev.follower_count + (nowFollowing ? 1 : -1),
+                }));
+              }}
             />
           )}
         </div>
@@ -100,7 +113,8 @@ export default function ProfilePage() {
               <BadgeCheck className="h-4 w-4 fill-blue-500 text-white" />
             )}
           </div>
-          <p className="text-sm text-muted-foreground">{profile.prodi}</p>
+          <p className="text-sm text-foreground">@{profile.username}</p>
+          <p className=" mt-2 text-sm text-muted-foreground">{profile.prodi}</p>
           {profile.bio && <p className="mt-2 text-sm">{profile.bio}</p>}
         </div>
 
@@ -121,7 +135,14 @@ export default function ProfilePage() {
           Belum ada postingan.
         </p>
       ) : (
-        posts.map((post) => <PostCard key={post.id_post} post={post} />)
+        posts.map((post) => (
+          <PostCard
+            key={post.id_post}
+            post={post}
+            onDeleted={handlePostDeleted}
+            onUpdated={handlePostUpdated}
+          />
+        ))
       )}
     </div>
   );

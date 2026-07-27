@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
-// POST -> like postingan
 export async function POST(request, { params }) {
   try {
     const session = await getCurrentUser();
@@ -12,61 +11,37 @@ export async function POST(request, { params }) {
 
     const { id } = await params;
 
-    const post = await prisma.posts.findUnique({
-      where: { id_post: id },
-      select: { id_user: true },
+    const existing = await prisma.likes.findFirst({
+      where: { id_post: id, id_user: session.id_user },
     });
 
-    if (!post) {
-      return NextResponse.json(
-        { error: "Postingan tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-
-    const like = await prisma.$transaction(async (tx) => {
-      const created = await tx.likes.create({
+    if (!existing) {
+      await prisma.likes.create({
         data: {
           id_like: crypto.randomUUID(),
           id_post: id,
           id_user: session.id_user,
         },
       });
+    }
 
-      await tx.posts.update({
-        where: { id_post: id },
-        data: { like_count: { increment: 1 } },
-      });
-
-      if (post.id_user !== session.id_user) {
-        await tx.notifications.create({
-          data: {
-            id_notif: crypto.randomUUID(),
-            id_user: post.id_user,
-            actor_id: session.id_user,
-            reference_id: id,
-            tipe: "like",
-            pesan: `${session.nama_lengkap} menyukai postinganmu`,
-          },
-        });
-      }
-
-      return created;
+    // Hitung ulang dari sumber asli (tabel likes), bukan increment manual
+    const actualCount = await prisma.likes.count({ where: { id_post: id } });
+    await prisma.posts.update({
+      where: { id_post: id },
+      data: { like_count: actualCount },
     });
 
-    return NextResponse.json(like, { status: 201 });
+    return NextResponse.json({ like_count: actualCount }, { status: 200 });
   } catch (error) {
     if (error.code === "P2002") {
-      return NextResponse.json(
-        { error: "Kamu sudah like postingan ini" },
-        { status: 409 },
-      );
+      const actualCount = await prisma.likes.count({ where: { id_post: (await params).id } });
+      return NextResponse.json({ like_count: actualCount }, { status: 200 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// DELETE -> unlike
 export async function DELETE(request, { params }) {
   try {
     const session = await getCurrentUser();
@@ -76,24 +51,19 @@ export async function DELETE(request, { params }) {
 
     const { id } = await params;
 
-    await prisma.$transaction(async (tx) => {
-      const result = await tx.likes.deleteMany({
-        where: { id_post: id, id_user: session.id_user },
-      });
-
-      if (result.count === 0) {
-        throw Object.assign(new Error("Like tidak ditemukan"), { status: 404 });
-      }
-
-      await tx.posts.update({
-        where: { id_post: id },
-        data: { like_count: { decrement: 1 } },
-      });
+    await prisma.likes.deleteMany({
+      where: { id_post: id, id_user: session.id_user },
     });
 
-    return NextResponse.json({ message: "Like dibatalkan" });
+    // Hitung ulang dari sumber asli, jadi nggak mungkin minus lagi
+    const actualCount = await prisma.likes.count({ where: { id_post: id } });
+    await prisma.posts.update({
+      where: { id_post: id },
+      data: { like_count: actualCount },
+    });
+
+    return NextResponse.json({ like_count: actualCount });
   } catch (error) {
-    const status = error.status || 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

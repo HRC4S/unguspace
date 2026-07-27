@@ -1,5 +1,5 @@
 "use client";
-
+import { toast } from "sonner";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -24,17 +24,19 @@ export function FollowButton({
           method: "POST",
           body: JSON.stringify({ following_id: targetUserId }),
         });
+        toast.success("Berhasil mengikuti");
       } else {
         await apiFetch("/api/follows", {
           method: "DELETE",
           body: JSON.stringify({ following_id: targetUserId }),
         });
+        toast.success("Berhasil berhenti mengikuti");
       }
       const next = !isFollowing;
       setIsFollowing(next);
       onToggled?.(next);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal memproses follow");
     } finally {
       setLoading(false);
     }

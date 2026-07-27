@@ -59,7 +59,11 @@ export default function PostDetailPage() {
             }}
           />
           <CommentInput postId={post.id_post} onCommented={loadPost} />
-          <CommentList comments={post.comments ?? []} />
+          <CommentList
+            comments={post.comments ?? []}
+            postId={post.id_post}
+            onChanged={loadPost}
+          />
         </>
       )}
     </div>

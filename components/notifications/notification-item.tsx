@@ -1,5 +1,6 @@
-import Link from "next/link";
-import { Heart, MessageCircle, UserPlus } from "lucide-react";
+"use client";
+
+import { Heart, MessageCircle, MessageCircleReply, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type Notification = {
@@ -8,6 +9,7 @@ type Notification = {
   pesan: string | null;
   is_read: boolean;
   created_at: string;
+  reference_id: string | null;
   actor: {
     nama_lengkap: string;
     avatar_url: string | null;
@@ -28,28 +30,39 @@ function timeAgo(dateString: string) {
 const iconMap: Record<string, any> = {
   like: Heart,
   comment: MessageCircle,
+  reply: MessageCircleReply,
   follow: UserPlus,
 };
 
 const iconColorMap: Record<string, string> = {
   like: "text-red-500",
   comment: "text-blue-500",
+  reply: "text-purple-500",
   follow: "text-green-500",
 };
 
 export function NotificationItem({
   notification,
   onRead,
+  onOpenPost,
 }: {
   notification: Notification;
   onRead: (id: string) => void;
+  onOpenPost: (postId: string) => void;
 }) {
   const Icon = iconMap[notification.tipe] || Heart;
   const iconColor = iconColorMap[notification.tipe] || "text-muted-foreground";
 
+  const handleClick = () => {
+    if (!notification.is_read) onRead(notification.id_notif);
+    if (notification.tipe !== "follow" && notification.reference_id) {
+      onOpenPost(notification.reference_id);
+    }
+  };
+
   return (
     <div
-      onClick={() => !notification.is_read && onRead(notification.id_notif)}
+      onClick={handleClick}
       className={`flex cursor-pointer gap-3 border-b p-4 transition-colors hover:bg-accent/30 ${
         !notification.is_read ? "bg-primary/5" : ""
       }`}
@@ -70,6 +83,7 @@ export function NotificationItem({
           </span>{" "}
           {notification.tipe === "like" && "menyukai postinganmu"}
           {notification.tipe === "comment" && "mengomentari postinganmu"}
+          {notification.tipe === "reply" && "membalas komentarmu"}
           {notification.tipe === "follow" && "mengikuti kamu"}
         </p>
         <span className="text-xs text-muted-foreground">

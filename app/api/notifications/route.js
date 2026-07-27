@@ -34,6 +34,7 @@ export async function GET(request) {
       pesan: n.pesan,
       is_read: n.is_read,
       created_at: n.created_at,
+      reference_id: n.reference_id,
       actor: n.users_notifications_actor_idTousers,
     }));
 
@@ -43,7 +44,7 @@ export async function GET(request) {
   }
 }
 
-///api/notifications -> tandai satu atau semua notifikasi sebagai sudah dibaca
+// /api/notifications -> tandai satu atau semua notifikasi sebagai sudah dibaca
 export async function PATCH(request) {
   try {
     const session = await getCurrentUser();

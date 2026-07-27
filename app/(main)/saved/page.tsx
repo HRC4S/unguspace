@@ -12,7 +12,7 @@ export default function SavedPage() {
   const loadSaved = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch("/api/saved_posts");
+      const data = await apiFetch("/api/saved-posts");
       setSaved(data);
     } finally {
       setLoading(false);

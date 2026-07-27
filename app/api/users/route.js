@@ -5,20 +5,16 @@ import {
   validateEmailAmikom,
   validateNim,
   validatePassword,
+  validateUsername,
 } from "@/lib/validation";
-import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const session = await getCurrentUser();
-    if (!isAdminUser(session)) {
-      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
-    }
-
     const users = await prisma.users.findMany({
       select: {
         id_user: true,
         nim: true,
+        username: true,
         nama_lengkap: true,
         email_amikom: true,
         prodi: true,
@@ -38,17 +34,20 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { nim, nama_lengkap, email_amikom, prodi, password, bio } = body;
+    const { nim, username, nama_lengkap, email_amikom, prodi, password, bio } = body;
 
-    if (!nim || !nama_lengkap || !email_amikom || !prodi || !password) {
-      return NextResponse.json(
-        { error: "Semua field wajib diisi" },
-        { status: 400 },
-      );
+    if (!nim || !username || !nama_lengkap || !email_amikom || !prodi || !password) {
+      return NextResponse.json({ error: "Semua field wajib diisi" }, { status: 400 });
     }
     if (!validateNim(nim)) {
       return NextResponse.json(
         { error: "Format NIM tidak valid (contoh: 23.01.1234)" },
+        { status: 400 },
+      );
+    }
+    if (!validateUsername(username)) {
+      return NextResponse.json(
+        { error: "Username harus 3-20 karakter, huruf kecil/angka/underscore saja" },
         { status: 400 },
       );
     }
@@ -59,10 +58,7 @@ export async function POST(request) {
       );
     }
     if (!validatePassword(password)) {
-      return NextResponse.json(
-        { error: "Password minimal 6 karakter" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Password minimal 6 karakter" }, { status: 400 });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -71,6 +67,7 @@ export async function POST(request) {
       data: {
         id_user: crypto.randomUUID(),
         nim,
+        username: username.toLowerCase(),
         nama_lengkap,
         email_amikom,
         prodi,
@@ -80,6 +77,7 @@ export async function POST(request) {
       select: {
         id_user: true,
         nim: true,
+        username: true,
         nama_lengkap: true,
         email_amikom: true,
         prodi: true,
@@ -89,10 +87,13 @@ export async function POST(request) {
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     if (error.code === "P2002") {
-      return NextResponse.json(
-        { error: "NIM atau Email sudah terdaftar" },
-        { status: 409 },
-      );
+      const field = error.meta?.target?.[0] || "";
+      const label = field.includes("username")
+        ? "Username"
+        : field.includes("nim")
+          ? "NIM"
+          : "Email";
+      return NextResponse.json({ error: `${label} sudah terdaftar` }, { status: 409 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

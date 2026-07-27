@@ -5,6 +5,7 @@ import { apiFetch } from "./api";
 
 type User = {
   id_user: string;
+  username: string;
   nama_lengkap: string;
   email_amikom: string;
   prodi: string;

@@ -8,17 +8,23 @@ datasource db {
 }
 
 model comments {
-  id_comment   String   @id @db.Char(36)
-  id_post      String   @db.Char(36)
-  id_user      String   @db.Char(36)
-  isi_komentar String   @db.Text
-  created_at   DateTime @default(now()) @db.Timestamp(0)
-  updated_at   DateTime @default(now()) @db.Timestamp(0)
-  posts        posts    @relation(fields: [id_post], references: [id_post], onDelete: Cascade, onUpdate: Restrict, map: "comments_ibfk_1")
-  users        users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "comments_ibfk_2")
+  id_comment        String          @id @db.Char(36)
+  id_post           String          @db.Char(36)
+  parent_comment_id String?         @db.Char(36)
+  id_user           String          @db.Char(36)
+  isi_komentar      String          @db.Text
+  media_url         String?         @db.VarChar(255)
+  created_at        DateTime        @default(now()) @db.Timestamp(0)
+  updated_at        DateTime        @default(now()) @db.Timestamp(0)
+  comment_likes     comment_likes[]
+  posts             posts           @relation(fields: [id_post], references: [id_post], onDelete: Cascade, onUpdate: Restrict, map: "comments_ibfk_1")
+  users             users           @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "comments_ibfk_2")
+  comments          comments?       @relation("commentsTocomments", fields: [parent_comment_id], references: [id_comment], onDelete: Cascade, onUpdate: Restrict, map: "comments_parent_fk")
+  other_comments    comments[]      @relation("commentsTocomments")
 
   @@index([id_post], map: "id_post")
   @@index([id_user], map: "id_user")
+  @@index([parent_comment_id], map: "comments_parent_fk")
 }
 
 model follows {
@@ -95,6 +101,7 @@ model users {
   id_user                                     String          @id @db.Char(36)
   nim                                         String          @unique(map: "nim") @db.VarChar(20)
   nama_lengkap                                String          @db.VarChar(100)
+  username                                    String          @unique(map: "unique_username") @db.VarChar(30)
   email_amikom                                String          @unique(map: "email_amikom") @db.VarChar(100)
   prodi                                       String          @db.VarChar(50)
   password_hash                               String          @db.VarChar(255)
@@ -103,6 +110,7 @@ model users {
   is_verified                                 Boolean?        @default(false)
   created_at                                  DateTime        @default(now()) @db.Timestamp(0)
   updated_at                                  DateTime        @default(now()) @db.Timestamp(0)
+  comment_likes                               comment_likes[]
   comments                                    comments[]
   follows_follows_follower_idTousers          follows[]       @relation("follows_follower_idTousers")
   follows_follows_following_idTousers         follows[]       @relation("follows_following_idTousers")
@@ -111,4 +119,16 @@ model users {
   notifications_notifications_actor_idTousers notifications[] @relation("notifications_actor_idTousers")
   posts                                       posts[]
   saved_posts                                 saved_posts[]
+}
+
+model comment_likes {
+  id_comment_like String   @id @db.Char(36)
+  id_comment      String   @db.Char(36)
+  id_user         String   @db.Char(36)
+  created_at      DateTime @default(now()) @db.Timestamp(0)
+  comments        comments @relation(fields: [id_comment], references: [id_comment], onDelete: Cascade, onUpdate: Restrict, map: "comment_likes_ibfk_1")
+  users           users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: Restrict, map: "comment_likes_ibfk_2")
+
+  @@unique([id_comment, id_user], map: "unique_comment_like")
+  @@index([id_user], map: "id_user")
 }
